@@ -1,18 +1,19 @@
 mod tantivy_storage;
 
-use std::net::SocketAddr;
-use std::time::Duration;
+use crate::tantivy_storage::TantivyIndexingStore;
 use anyhow::Result;
 use datacake::crdt::Key;
 use datacake::eventual_consistency::EventuallyConsistentStoreExtension;
-use datacake::node::{ConnectionConfig, Consistency, DatacakeNode, DatacakeNodeBuilder, DCAwareSelector};
+use datacake::node::{
+    ConnectionConfig, Consistency, DCAwareSelector, DatacakeNode, DatacakeNodeBuilder,
+};
+use std::net::SocketAddr;
+use std::time::Duration;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tokio::time::Instant;
-use crate::tantivy_storage::TantivyIndexingStore;
 
 static KEYSPACE: &str = "tantivy";
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -32,11 +33,14 @@ async fn main() -> Result<()> {
     let (_index_3, indexing_store_3) = TantivyIndexingStore::open().await?;
 
     let node_1_store = node_1
-        .add_extension(EventuallyConsistentStoreExtension::new(indexing_store_1)).await?;
+        .add_extension(EventuallyConsistentStoreExtension::new(indexing_store_1))
+        .await?;
     let _node_2_store = node_2
-        .add_extension(EventuallyConsistentStoreExtension::new(indexing_store_2)).await?;
+        .add_extension(EventuallyConsistentStoreExtension::new(indexing_store_2))
+        .await?;
     let _node_3_store = node_3
-        .add_extension(EventuallyConsistentStoreExtension::new(indexing_store_3)).await?;
+        .add_extension(EventuallyConsistentStoreExtension::new(indexing_store_3))
+        .await?;
 
     let node_1_handle = node_1_store.handle_with_keyspace(KEYSPACE);
 
@@ -99,9 +103,15 @@ async fn connect_nodes(addrs: [SocketAddr; 3]) -> Result<[DatacakeNode; 3]> {
         .await
         .expect("Connect node.");
 
-    node_1.wait_for_nodes([2, 3], Duration::from_secs(30)).await?;
-    node_2.wait_for_nodes([1, 3], Duration::from_secs(30)).await?;
-    node_3.wait_for_nodes([2, 1], Duration::from_secs(30)).await?;
+    node_1
+        .wait_for_nodes([2, 3], Duration::from_secs(30))
+        .await?;
+    node_2
+        .wait_for_nodes([1, 3], Duration::from_secs(30))
+        .await?;
+    node_3
+        .wait_for_nodes([2, 1], Duration::from_secs(30))
+        .await?;
 
     Ok([node_1, node_2, node_3])
 }
