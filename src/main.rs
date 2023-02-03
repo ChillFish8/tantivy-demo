@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate tracing;
+
 mod tantivy_storage;
 
 use crate::tantivy_storage::TantivyIndexingStore;
@@ -7,16 +10,22 @@ use datacake::eventual_consistency::EventuallyConsistentStoreExtension;
 use datacake::node::{
     ConnectionConfig, Consistency, DCAwareSelector, DatacakeNode, DatacakeNodeBuilder,
 };
+use mimalloc::MiMalloc;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tokio::time::Instant;
 
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 static KEYSPACE: &str = "tantivy";
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt::init();
+
     let doc_data = std::fs::read_to_string("movies.json")?;
     let doc_data: Vec<serde_json::Value> = serde_json::from_str(&doc_data)?;
 
@@ -52,9 +61,9 @@ async fn main() -> Result<()> {
         let raw = serde_json::to_vec(&line)?;
         docs.push((id as Key, raw))
     }
+    let num_docs = docs.len();
     node_1_handle.put_many(docs, Consistency::All).await?;
-    println!("Took: {:?}", start.elapsed());
-
+    info!(elapsed = ?start.elapsed(), num_doc = num_docs, "Indexing complete!");
 
     // Read node 2
     let schema = index_2.schema();
@@ -65,10 +74,10 @@ async fn main() -> Result<()> {
     let parser = QueryParser::new(schema, vec![data_field], index_2.tokenizers().clone());
     let query = parser.parse_query("title:hello")?;
 
-    let results = searcher.search(&query, &TopDocs::with_limit(10))?;
+    let results = searcher.search(&query, &TopDocs::with_limit(1))?;
     for (score, addr) in results {
         let doc = searcher.doc(addr)?;
-        println!("Score: {score}, Doc: {doc:?}");
+        info!("Score: {score}, Doc: {doc:?}");
     }
 
     Ok(())
