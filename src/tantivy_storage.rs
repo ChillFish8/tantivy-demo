@@ -5,7 +5,7 @@ use datacake::sqlite::SqliteStorage;
 use std::time::Duration;
 
 use puppet::{derive_message, puppet_actor, ActorMailbox};
-use tantivy::schema::{Field, Schema, SchemaBuilder, FAST, STORED, TEXT};
+use tantivy::schema::{Field, SchemaBuilder, FAST, STORED, TEXT};
 use tantivy::{Document, Index, IndexWriter, Term};
 use tokio::time::interval;
 
@@ -240,6 +240,7 @@ impl IndexerActor {
         for doc in msg.0 {
             self.writer.add_document(doc).unwrap();
         }
+        self.writer.commit().unwrap();
     }
 
     #[puppet]

@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
 
     let [node_1, node_2, node_3] = connect_nodes(addresses).await?;
 
-    let (index_1, indexing_store_1) = TantivyIndexingStore::open().await?;
+    let (_index_1, indexing_store_1) = TantivyIndexingStore::open().await?;
     let (index_2, indexing_store_2) = TantivyIndexingStore::open().await?;
     let (_index_3, indexing_store_3) = TantivyIndexingStore::open().await?;
 
@@ -47,11 +47,14 @@ async fn main() -> Result<()> {
     let start = Instant::now();
 
     // Write on node 1
+    let mut docs = Vec::new();
     for (id, line) in doc_data.into_iter().enumerate() {
         let raw = serde_json::to_vec(&line)?;
-        node_1_handle.put(id as Key, raw, Consistency::All).await?;
+        docs.push((id as Key, raw))
     }
+    node_1_handle.put_many(docs, Consistency::All).await?;
     println!("Took: {:?}", start.elapsed());
+
 
     // Read node 2
     let schema = index_2.schema();
@@ -90,18 +93,15 @@ async fn connect_nodes(addrs: [SocketAddr; 3]) -> Result<[DatacakeNode; 3]> {
 
     let node_1 = DatacakeNodeBuilder::<DCAwareSelector>::new(1, connection_cfg_1)
         .connect()
-        .await
-        .expect("Connect node.");
+        .await?;
 
     let node_2 = DatacakeNodeBuilder::<DCAwareSelector>::new(2, connection_cfg_2)
         .connect()
-        .await
-        .expect("Connect node.");
+        .await?;
 
     let node_3 = DatacakeNodeBuilder::<DCAwareSelector>::new(3, connection_cfg_3)
         .connect()
-        .await
-        .expect("Connect node.");
+        .await?;
 
     node_1
         .wait_for_nodes([2, 3], Duration::from_secs(30))
